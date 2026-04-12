@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.gguf
+training-data/
+checkpoints/
+.ipynb_checkpoints/
