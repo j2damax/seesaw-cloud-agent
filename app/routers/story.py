@@ -50,7 +50,7 @@ async def generate_story(payload: ScenePayload):
             story_history=[t.model_dump() for t in payload.story_history],
             is_final_beat=is_final_beat,
         )
-    except ValueError as exc:
+    except Exception as exc:
         logger.error("generate_story: agent error: %s", exc)
         raise HTTPException(status_code=503, detail={"error": "Story generation failed", "detail": str(exc)})
 

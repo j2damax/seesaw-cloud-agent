@@ -1,6 +1,8 @@
-# Gemma 4 Fine-Tuning Guide
+# Gemma 3 Fine-Tuning Guide
 
-**Goal:** Fine-tune `google/gemma-4-1b-it` on children's story data to produce `seesaw-gemma4-1b-q4km.gguf` (~800 MB) for on-device iOS inference via MediaPipe Tasks GenAI.
+**Goal:** Fine-tune `google/gemma-3-1b-it` on children's story data to produce `seesaw-gemma3-1b-q4km.gguf` (~800 MB) for on-device iOS inference via MediaPipe Tasks GenAI.
+
+> **Note:** `google/gemma-4-1b-it` does not exist — Gemma 4 skipped 1B (smallest is E2B MoE, incompatible with MediaPipe). `gemma-3-1b-it` is the correct model: 1B parameters, instruction-tuned, fully supported by llama.cpp GGUF and MediaPipe Tasks GenAI on iOS.
 
 **Run the three notebooks in `training/` in order.** Each is self-contained and documented inline.
 
@@ -14,12 +16,12 @@ Notebook 1: data_prep.ipynb      (~30 min, free Colab T4)
   Output: gs://seesaw-models/training-data/seesaw_beats_train.jsonl
 
 Notebook 2: finetune.ipynb       (~3 hours, Vertex AI T4, ~$6)
-  LoRA fine-tuning on Gemma 4 1B instruction-tuned base
-  Output: gs://seesaw-models/checkpoints/seesaw-gemma4-v1/
+  LoRA fine-tuning on Gemma 3 1B instruction-tuned base
+  Output: gs://seesaw-models/checkpoints/seesaw-gemma3-v1/
 
 Notebook 3: export_gguf.ipynb    (~20 min, free Colab T4)
   Merge LoRA → GGUF Q4_K_M quantisation → validate → upload
-  Output: gs://seesaw-models/seesaw-gemma4-1b-q4km.gguf
+  Output: gs://seesaw-models/seesaw-gemma3-1b-q4km.gguf
 ```
 
 ---
@@ -131,7 +133,7 @@ training_args = TrainingArguments(
 ```python
 from google.cloud import aiplatform
 
-aiplatform.init(project="seesaw-research", location="us-central1")
+aiplatform.init(project="seesaw-3e396", location="europe-west4")
 
 job = aiplatform.CustomTrainingJob(
     display_name="seesaw-gemma4-finetune",
@@ -140,7 +142,7 @@ job = aiplatform.CustomTrainingJob(
     requirements=["transformers", "peft", "datasets", "accelerate", "trl"],
 )
 job.run(
-    args=["--model_name=google/gemma-4-1b-it", "--output_dir=gs://seesaw-models/checkpoints/"],
+    args=["--model_name=google/gemma-3-1b-it", "--output_dir=gs://seesaw-models/checkpoints/"],
     replica_count=1,
     machine_type="n1-standard-8",
     accelerator_type="NVIDIA_TESLA_T4",
@@ -160,8 +162,8 @@ job.run(
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-base_model = AutoModelForCausalLM.from_pretrained("google/gemma-4-1b-it", torch_dtype=torch.float16)
-model = PeftModel.from_pretrained(base_model, "gs://seesaw-models/checkpoints/seesaw-gemma4-v1/")
+base_model = AutoModelForCausalLM.from_pretrained("google/gemma-3-1b-it", torch_dtype=torch.float16)
+model = PeftModel.from_pretrained(base_model, "gs://seesaw-models/checkpoints/seesaw-gemma3-v1/")
 merged = model.merge_and_unload()
 merged.save_pretrained("/tmp/seesaw-gemma4-merged")
 ```
@@ -182,7 +184,7 @@ python convert_hf_to_gguf.py /tmp/seesaw-gemma4-merged \
 
 # Quantise to Q4_K_M
 ./llama-quantize /tmp/seesaw-gemma4-f16.gguf \
-                 /tmp/seesaw-gemma4-1b-q4km.gguf \
+                 /tmp/seesaw-gemma3-1b-q4km.gguf \
                  Q4_K_M
 ```
 
@@ -194,7 +196,7 @@ Run 3 sample inferences on the GGUF model before uploading:
 
 ```bash
 ./llama-cli \
-  -m /tmp/seesaw-gemma4-1b-q4km.gguf \
+  -m /tmp/seesaw-gemma3-1b-q4km.gguf \
   -p "<bos><start_of_turn>user\nChild: Vihas, age 5. Objects: teddy_bear, book. Continue the story.<end_of_turn>\n<start_of_turn>model\n" \
   -n 200
 ```
@@ -208,8 +210,8 @@ Check that:
 ### Step 4: Upload to GCS
 
 ```bash
-gsutil cp /tmp/seesaw-gemma4-1b-q4km.gguf gs://seesaw-models/seesaw-gemma4-1b-q4km.gguf
-gsutil acl ch -u AllUsers:R gs://seesaw-models/seesaw-gemma4-1b-q4km.gguf  # or use signed URLs
+gsutil cp /tmp/seesaw-gemma3-1b-q4km.gguf gs://seesaw-models/seesaw-gemma3-1b-q4km.gguf
+gsutil acl ch -u AllUsers:R gs://seesaw-models/seesaw-gemma3-1b-q4km.gguf  # or use signed URLs
 ```
 
 After upload, test the `/model/latest` endpoint returns the correct download URL and size.
@@ -234,17 +236,17 @@ let rawOutput = try inference.generateResponse(inputText: fullPrompt)
 let beat = try Gemma4StoryService.parseResponse(rawOutput, isFinalTurn: isFinalTurn)
 ```
 
-**Context window:** Gemma 4 1B has a 32K token context window. A full 8-turn SeeSaw session with rolling history is ~2K tokens. No context-restart logic needed (unlike Apple Foundation Models which has a ~4K effective window on the 3B model).
+**Context window:** Gemma 3 1B has a 32K token context window. A full 8-turn SeeSaw session with rolling history is ~2K tokens. No context-restart logic needed (unlike Apple Foundation Models which has a ~4K effective window on the 3B model).
 
 ---
 
 ## HuggingFace Model Card
 
-After validation, publish the model as `j2damax/seesaw-gemma4-1b` on HuggingFace:
+After validation, publish the model as `j2damax/seesaw-gemma3-1b` on HuggingFace:
 
 ```markdown
 ---
-base_model: google/gemma-4-1b-it
+base_model: google/gemma-3-1b-it
 language: en
 license: gemma
 tags:
@@ -257,7 +259,7 @@ tags:
 
 # SeeSaw-Gemma-1B
 
-Fine-tuned Gemma 4 1B for children's interactive storytelling.
+Fine-tuned Gemma 3 1B for children's interactive storytelling.
 Trained on TinyStories + SeeSaw story beat exports.
 Outputs JSON: { story_text, question, is_ending }.
 Quantised to Q4_K_M GGUF for on-device iOS inference via MediaPipe.
@@ -274,3 +276,4 @@ Quantised to Q4_K_M GGUF for on-device iOS inference via MediaPipe.
 | GGUF file > 1 GB | Wrong quantisation type | Use `Q4_K_M` not `Q8_0` |
 | MediaPipe crash on iOS | Incorrect model format | Validate with `llama-cli` first |
 | Cold-start > 5s on iPhone 12 | Model loading | Pre-load at app launch, not on first story request |
+

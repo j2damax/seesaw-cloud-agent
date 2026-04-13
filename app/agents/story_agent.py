@@ -2,10 +2,15 @@
 # Google ADK LlmAgent wrapping Gemini 2.0 Flash for children's story generation.
 # Receives a ScenePayload and returns a StoryBeat-compatible JSON object.
 
-from google.adk.agents import LlmAgent
-from google.adk.models.lite_llm import LiteLlm
 import json
 import logging
+import uuid
+
+from google.adk.agents import LlmAgent
+from google.adk.models.lite_llm import LiteLlm
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +32,18 @@ Respond with a JSON object ONLY — no markdown, no explanation:
 {"story_text": "...", "question": "...", "is_ending": false}
 """
 
-story_agent = LlmAgent(
+_session_service = InMemorySessionService()
+
+_story_agent = LlmAgent(
     name="seesaw_story_agent",
-    model=LiteLlm(model="gemini/gemini-2.0-flash"),
+    model=LiteLlm(model="gemini/gemini-2.5-flash"),
     instruction=STORY_SYSTEM_PROMPT,
+)
+
+_runner = Runner(
+    app_name="seesaw",
+    agent=_story_agent,
+    session_service=_session_service,
 )
 
 
@@ -75,7 +88,7 @@ async def generate_story_beat(
     is_final_beat: bool = False,
 ) -> dict:
     """
-    Calls the ADK story_agent and parses the JSON response into a dict
+    Calls the ADK story_agent via Runner and parses the JSON response into a dict
     with keys: story_text, question, is_ending.
 
     Raises ValueError if the response cannot be parsed as valid JSON.
@@ -95,9 +108,32 @@ async def generate_story_beat(
         len(objects), len(scene), len(story_history)
     )
 
-    # ADK agent call
-    response = await story_agent.run_async(user_message=user_prompt)
-    raw = response.text.strip()
+    # Each call gets a fresh ephemeral session — no state leaks between requests
+    user_id = "seesaw-agent"
+    session_id = str(uuid.uuid4())
+    _session_service.create_session(
+        app_name="seesaw",
+        user_id=user_id,
+        session_id=session_id,
+    )
+
+    new_message = types.Content(
+        role="user",
+        parts=[types.Part(text=user_prompt)],
+    )
+
+    raw = ""
+    async for event in _runner.run_async(
+        user_id=user_id,
+        session_id=session_id,
+        new_message=new_message,
+    ):
+        if event.is_final_response() and event.content and event.content.parts:
+            raw = event.content.parts[0].text.strip()
+            break
+
+    if not raw:
+        raise ValueError("Story agent returned an empty response")
 
     # Strip accidental markdown fences
     if raw.startswith("```"):
