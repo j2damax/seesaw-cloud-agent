@@ -110,21 +110,21 @@ X-SeeSaw-Key: your-secret-key
 
 ```json
 {
-  "download_url": "https://storage.googleapis.com/seesaw-models/seesaw-gemma4-1b-q4km.gguf?X-Goog-Signature=...&expires=...",
+  "download_url": "https://storage.googleapis.com/seesaw-models/seesaw-gemma3-1b-q4km.gguf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=...&X-Goog-Expires=3600&X-Goog-Signature=...",
   "model_version": "1.0.0",
-  "size_bytes": 850000000,
-  "expires_at": "2026-04-13T19:00:00Z"
+  "size_bytes": 814261088,
+  "expires_at": "2026-04-13T14:24:03Z"
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `download_url` | `string` | Signed GCS URL, valid for 1 hour |
+| `download_url` | `string` | V4 signed GCS URL, valid for 1 hour |
 | `model_version` | `string` | Semantic version of the GGUF model |
-| `size_bytes` | `int` | File size for progress display (~850 MB) |
+| `size_bytes` | `int` | Exact file size in bytes (814,261,088 = 777 MB) |
 | `expires_at` | `string` | ISO 8601 UTC expiry of the signed URL |
 
-The iOS `ModelDownloadManager` uses this URL directly with `URLSession.downloadTask`. If the endpoint is unreachable, iOS falls back to the hardcoded GCS URL in `UserDefaults.standard.gemma4ModelURL`.
+The iOS `ModelDownloadManager` calls this endpoint first (passing `X-SeeSaw-Key`) to get the signed URL, then hands it to `URLSession.downloadTask`. If the endpoint is unreachable, iOS falls back to the `UserDefaults.standard.gemma4ModelURL` override (development use only).
 
 ---
 
@@ -232,3 +232,4 @@ The `SEESAW_API_KEY` is stored in GCP Secret Manager and injected into Cloud Run
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0.0 | 2026-04-12 | Initial API (Sprint 3) |
+| 1.0.1 | 2026-04-13 | `/model/latest`: corrected filename to `seesaw-gemma3-1b-q4km.gguf`, `size_bytes` to `814261088`. Signed URL now uses IAM signBlob (service account `roles/iam.serviceAccountTokenCreator`). |

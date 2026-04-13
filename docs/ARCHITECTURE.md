@@ -1,7 +1,7 @@
 # SeeSaw — System Architecture
 
-**Last updated:** 2026-04-12  
-**Version:** Sprint 3 (Gemma 4 integration)
+**Last updated:** 2026-04-13  
+**Version:** Sprint 3 (Gemma 3 fine-tuning complete — cloud backend live)
 
 ---
 
@@ -176,27 +176,28 @@ The system prompt enforces:
 ### Fine-Tuning Configuration
 
 ```
-Base model:    google/gemma-4-1b-it  (instruction-tuned)
+Base model:    google/gemma-3-1b-it  (instruction-tuned)
 Method:        LoRA  (r=16, alpha=32, target: q/k/v/o projections)
-Parameters:    ~0.8% trainable
+Parameters:    ~0.8% trainable (~8M of 1B)
 Hardware:      Vertex AI T4 GPU
-Duration:      ~3 hours
+Duration:      ~27 min (3 epochs on ~8k examples)
 Cost:          ~$6 USD
-Epochs:        3
+Epochs:        3  (eval_loss: 0.5115 → 0.4960 → 0.4945)
 Batch:         4 + grad_accum=4 (effective=16)
 LR:            2e-4, cosine schedule
+Checkpoint:    gs://seesaw-models/checkpoints/seesaw-gemma3-v1/
 ```
 
-### Export Pipeline
+### Export Pipeline (completed 2026-04-13)
 
 ```
-Vertex AI checkpoint
-  ↓ merge LoRA adapters
-  ↓ convert_hf_to_gguf.py  (llama.cpp)
+gs://seesaw-models/checkpoints/seesaw-gemma3-v1/
+  ↓ PEFT merge_and_unload() on Colab T4
+  ↓ llama.cpp convert_hf_to_gguf.py (b8777, with Gemma 3 patches)
   ↓ llama-quantize Q4_K_M
-  → seesaw-gemma4-1b-q4km.gguf (~800 MB)
+  → seesaw-gemma3-1b-q4km.gguf  (814,261,088 bytes / 777 MB)
   ↓ upload gs://seesaw-models/
-  ↓ GET /model/latest returns signed URL
+  ↓ GET /model/latest (X-SeeSaw-Key) → V4 signed GCS URL
   ↓ iOS ModelDownloadManager downloads to Documents/
   ↓ Gemma4StoryService loads via MediaPipe LlmInference
 ```

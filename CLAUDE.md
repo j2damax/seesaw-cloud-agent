@@ -136,8 +136,10 @@ docs/
 - `docs/ARCHITECTURE.md` — start here for system overview
 - `docs/PRIVACY_CONTRACT.md` — non-negotiable privacy rules
 - `docs/API_REFERENCE.md` — exact field names (must match iOS)
-- `docs/FINE_TUNING.md` — Gemma 4 training pipeline
+- `docs/FINE_TUNING.md` — Gemma 3 training pipeline + export (completed 2026-04-13)
+- `docs/DEPLOYMENT.md` — Cloud Run setup + verified endpoint results
 - `docs/iOS_Implementation_Guide.md` — master sprint document (Steps 4–6)
+- `docs/THESIS_REFERENCE.md` — MSc dissertation data: training metrics, deployment facts, evaluation design
 - `docs/VAD_Research.md` — semantic turn-taking research findings
 
 ## Secrets and Environment

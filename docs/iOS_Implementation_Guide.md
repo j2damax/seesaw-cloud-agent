@@ -89,9 +89,9 @@ import Foundation
 
 actor Gemma4StoryService {
 
-    static let modelFilename  = "seesaw-gemma4-1b-q4km"
+    static let modelFilename  = "seesaw-gemma3-1b-q4km"   // matches GCS object name
     static let modelExtension = "gguf"
-    static let modelCDNEndpoint = "/model/latest"   // appended to cloudAgentURL
+    static let modelCDNEndpoint = "/model/latest"          // appended to cloudAgentURL
 
     private var inference: LlmInference?
 
@@ -219,13 +219,14 @@ final class ModelDownloadManager: NSObject {
         guard !isModelReady, !isDownloading else { return }
         isDownloading = true; errorMessage = nil; progress = 0
 
-        // Fetch signed download URL from cloud endpoint
-        let metaURL = URL(string: "\(cloudAgentBaseURL)\(Gemma4StoryService.modelCDNEndpoint)")
-                      ?? URL(string: "https://cdn.seesaw.app/model/latest")!
+        // Fetch signed download URL from cloud endpoint (requires X-SeeSaw-Key header)
+        let metaURL = URL(string: "\(cloudAgentBaseURL)\(Gemma4StoryService.modelCDNEndpoint)")!
+        var metaRequest = URLRequest(url: metaURL, timeoutInterval: 10)
+        metaRequest.setValue(UserDefaults.standard.cloudAgentKey, forHTTPHeaderField: "X-SeeSaw-Key")
         var downloadURL = metaURL
-        if let (data, _) = try? await URLSession.shared.data(from: metaURL),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: String],
-           let urlStr = json["download_url"],
+        if let (data, _) = try? await URLSession.shared.data(for: metaRequest),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let urlStr = json["download_url"] as? String,
            let url = URL(string: urlStr) {
             downloadURL = url
         }
@@ -443,7 +444,7 @@ Response:
 {
   "download_url": "https://storage.googleapis.com/seesaw-models/seesaw-gemma4-1b-q4km.gguf?X-Goog-Signature=...",
   "model_version": "1.0.0",
-  "size_bytes": 850000000,
+  "size_bytes": 814261088,
   "expires_at": "2026-04-12T19:00:00Z"
 }
 ```
