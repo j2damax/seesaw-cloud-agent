@@ -201,7 +201,7 @@ gcloud run services describe seesaw-cloud-agent \
 
 ## Post-Deploy Verification
 
-**Verified: 2026-04-13** — all three checks pass against the live Cloud Run service.
+**Verified: 2026-04-13** — all four checks pass against the live Cloud Run service (revision `seesaw-cloud-agent-00005-497`).
 
 ```bash
 export CLOUD_URL="https://seesaw-cloud-agent-531853173205.europe-west1.run.app"
@@ -242,11 +242,25 @@ curl -s -X POST $CLOUD_URL/story/generate \
 }
 ```
 
+```bash
+# 4. Model URL (returns signed GCS URL + metadata)
+curl -s $CLOUD_URL/model/latest -H "X-SeeSaw-Key: $API_KEY"
+```
+```json
+{
+  "download_url": "https://storage.googleapis.com/seesaw-models/seesaw-gemma3-1b-q4km.gguf?X-Goog-Algorithm=...",
+  "model_version": "1.0.0",
+  "size_bytes": 814261088,
+  "expires_at": "2026-04-13T14:24:03Z"
+}
+```
+
 | Check | Status |
 |---|---|
 | `GET /health` | Pass |
 | Wrong API key → `{"error":"Unauthorized"}` | Pass |
 | `POST /story/generate` → full story beat + Firestore session written | Pass |
+| `GET /model/latest` → signed GCS URL, `size_bytes=814261088` | Pass |
 
 ---
 
@@ -300,6 +314,17 @@ After Cloud Run is deployed and verified:
 ```bash
 gcloud secrets versions access latest --secret=SEESAW_API_KEY | tr -d '\n' | \
   gcloud secrets versions add SEESAW_API_KEY --data-file=-
+```
+
+### 503 `Model URL generation failed` on `GET /model/latest`
+**Cause:** `generate_signed_url` on Cloud Run fails with `you need a private key to sign credentials` because Compute Engine credentials are token-only.  
+**Fix (code):** Pass `service_account_email` + `access_token` to `generate_signed_url` so it uses the IAM `signBlob` API (already applied in `app/services/model_cdn.py`).  
+**Fix (IAM):** Grant the service account `roles/iam.serviceAccountTokenCreator` on itself:
+```bash
+gcloud iam service-accounts add-iam-policy-binding \
+  seesaw-cloud-agent@seesaw-3e396.iam.gserviceaccount.com \
+  --member="serviceAccount:seesaw-cloud-agent@seesaw-3e396.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator"
 ```
 
 ### 404 model not found

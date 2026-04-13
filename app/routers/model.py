@@ -11,9 +11,9 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-MODEL_FILENAME   = "seesaw-gemma4-1b-q4km.gguf"
+MODEL_FILENAME   = "seesaw-gemma3-1b-q4km.gguf"
 MODEL_VERSION    = "1.0.0"
-MODEL_SIZE_BYTES = 850_000_000   # ~850 MB
+MODEL_SIZE_BYTES = 814_261_088   # 777 MB — measured from gs://seesaw-models/seesaw-gemma3-1b-q4km.gguf
 URL_EXPIRY_HOURS = 1
 
 
