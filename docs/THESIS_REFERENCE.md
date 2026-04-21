@@ -85,13 +85,13 @@ For dissertation timing measurements, use warm-instance latency. Cold-start late
 
 | Property | Value |
 |---|---|
-| **Export method** | llama.cpp b8777 `convert_hf_to_gguf.py` + `llama-quantize Q4_K_M` |
-| **Output file** | `seesaw-gemma3-1b-q4km.gguf` |
-| **GCS location** | `gs://seesaw-models/seesaw-gemma3-1b-q4km.gguf` |
-| **File size** | 814,261,088 bytes (777 MB) |
+| **Export method** | llama.cpp b8797 `convert_hf_to_gguf.py` + `llama-quantize Q8_0` |
+| **Output file** | `seesaw-gemma3-1b-q8_0.gguf` |
+| **GCS location** | `gs://seesaw-models/seesaw-gemma3-1b-q8_0.gguf` |
+| **File size** | 1,077,509,216 bytes (1,028 MB) |
 | **GGUF architecture** | `gemma3` |
 | **Context length (metadata)** | 32,768 tokens |
-| **Quantisation** | Q4_K_M (4-bit, mixed precision, k-quant) |
+| **Quantisation** | Q8_0 — K-quants (Q4_K_M) rejected at load time by MediaPipe Tasks GenAI 0.10.33 |
 | **Validated** | `gguf.GGUFReader` metadata check: architecture=gemma3, context=32768 ✓ |
 | **Download** | `GET /model/latest` → 1-hour signed GCS URL |
 
@@ -196,9 +196,10 @@ Model CDN:  Google Cloud Storage (europe-west2) + V4 signed URLs
 Base:       google/gemma-3-1b-it (HuggingFace)
 Fine-tune:  PEFT 0.14 LoRA, Transformers 4.49, TRL
 Hardware:   Vertex AI custom job, NVIDIA T4 GPU
-Export:     llama.cpp b8777 convert_hf_to_gguf.py + Q4_K_M quantisation
-Format:     GGUF (llama.cpp standard), Q4_K_M 4-bit mixed precision
+Export:     llama.cpp b8797 convert_hf_to_gguf.py + Q8_0 quantisation
+Format:     GGUF (llama.cpp standard), Q8_0 8-bit quantisation
 iOS load:   MediaPipe Tasks GenAI LlmInference
+Note:       Q4_K_M rejected by MediaPipe 0.10.33 (K-quants unsupported)
 ```
 
 ### iOS Stack (Architecture C path)
@@ -206,7 +207,7 @@ iOS load:   MediaPipe Tasks GenAI LlmInference
 ```
 Language:   Swift 6, SwiftUI, SwiftData
 Inference:  MediaPipe Tasks GenAI (LlmInference)
-Model file: seesaw-gemma3-1b-q4km.gguf (777 MB, Documents/)
+Model file: seesaw-gemma3-1b-q8_0.gguf (1,028 MB, Documents/)
 Download:   URLSession background download, progress via AsyncStream
 ```
 
@@ -232,8 +233,8 @@ Download:   URLSession background download, progress via AsyncStream
 | Figure | Value | Source |
 |---|---|---|
 | Training eval_loss (final) | 0.4945 | `training/finetune.ipynb` cell output |
-| GGUF file size | 814,261,088 bytes (777 MB) | `gsutil ls -lh gs://seesaw-models/seesaw-gemma3-1b-q4km.gguf` |
-| Trainable parameters | ~8M / 1B (0.8%) | LoRA r=16 on q/k/v/o, 18 layers |
+| GGUF file size | 1,077,509,216 bytes (1,028 MB) | `training/export_gguf.ipynb` Cell 8 output |
+| Trainable parameters | 2,981,888 / 1,002,867,840 (0.2973%) | `training/finetune.ipynb` Cell 4 output |
 | Cloud warm latency | ~1.5–3s | Observed during `POST /story/generate` testing |
 | Cloud cold-start | ~25–35s | Cloud Run min-instances=0 |
 | PII scrubbing | `totalPiiTokensRedacted` per session | iOS `StorySessionRecord` field |
